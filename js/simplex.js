@@ -162,7 +162,7 @@
 
     const variableNames = [
       ...decisionNames,
-      ...Array.from({ length: numberOfConstraints }, (_, index) => `s${index + 1}`),
+      ...normalizedRows.map((row, index) => `${row.sense === 'le' ? 's' : 'e'}${index + 1}`),
       ...Array.from({ length: artificialCount }, (_, index) => `r${index + 1}`),
     ];
 
@@ -252,19 +252,25 @@
     return values;
   }
 
-  /** Resuelve el primal y construye su dual a partir de A, b y c. */
-  function solveLinearProgram(objective, constraints) {
+  /** Resuelve una formulación canónica de maximización o minimización. */
+  function solveLinearProgram(objective, constraints, direction = 'max') {
     const numberOfVariables = objective.length;
     const numberOfConstraints = constraints.length;
     const matrix = constraints.map((constraint) => constraint.coefficients);
     const rhs = constraints.map((constraint) => constraint.rhs);
     const decisionNames = Array.from({ length: numberOfVariables }, (_, index) => `x${index + 1}`);
 
+    // Forma canónica elegida en la interfaz:
+    // max c*x con A*x <= b, o min c*x con A*x >= b.
+    const primalConstraintSense = direction === 'max' ? 'le' : 'ge';
+    const simplexObjective = direction === 'max'
+      ? [...objective]
+      : objective.map((coefficient) => -coefficient);
     const primal = solveStandardForm(
       matrix,
       rhs,
-      Array(numberOfConstraints).fill('le'),
-      objective,
+      Array(numberOfConstraints).fill(primalConstraintSense),
+      simplexObjective,
       decisionNames,
     );
 
@@ -273,20 +279,25 @@
     const primalVariables = readBasicSolution(primal, numberOfVariables);
     const primalValue = objective.reduce((sum, coefficient, index) =>
       sum + coefficient * primalVariables[index], 0);
-    const primalSlacks = constraints.map((constraint) => constraint.rhs -
-      constraint.coefficients.reduce((sum, coefficient, index) =>
-        sum + coefficient * primalVariables[index], 0));
+    const primalSlacks = constraints.map((constraint) => {
+      const used = constraint.coefficients.reduce((sum, coefficient, index) =>
+        sum + coefficient * primalVariables[index], 0);
+      return direction === 'max' ? constraint.rhs - used : used - constraint.rhs;
+    });
 
-    // Dual del primal max c*x, A*x <= b, x >= 0:
-    // min b*y, A^T*y >= c, y >= 0.
-    // El tableau resuelve max(-W), que tiene el mismo óptimo que min(W).
+    // Dualidad para las dos formas canónicas:
+    // max / <=  -> min b*y, A^T*y >= c.
+    // min / >=  -> max b*y, A^T*y <= c.
     const dualMatrix = Array.from({ length: numberOfVariables }, (_, variable) =>
       constraints.map((constraint) => constraint.coefficients[variable]));
+    const dualConstraintSense = direction === 'max' ? 'ge' : 'le';
+    const dualObjective = constraints.map((constraint) =>
+      direction === 'max' ? -constraint.rhs : constraint.rhs);
     const dual = solveStandardForm(
       dualMatrix,
       [...objective],
-      Array(numberOfVariables).fill('ge'),
-      constraints.map((constraint) => -constraint.rhs),
+      Array(numberOfVariables).fill(dualConstraintSense),
+      dualObjective,
       Array.from({ length: numberOfConstraints }, (_, index) => `y${index + 1}`),
     );
 
@@ -295,12 +306,17 @@
     const dualVariables = readBasicSolution(dual, numberOfConstraints);
     const dualValue = constraints.reduce((sum, constraint, index) =>
       sum + constraint.rhs * dualVariables[index], 0);
-    const dualExcesses = objective.map((coefficient, variable) =>
-      constraints.reduce((sum, constraint, index) =>
-        sum + constraint.coefficients[variable] * dualVariables[index], 0) - coefficient);
+    const dualSlacks = objective.map((coefficient, variable) => {
+      const resourceValue = constraints.reduce((sum, constraint, index) =>
+        sum + constraint.coefficients[variable] * dualVariables[index], 0);
+      return direction === 'max'
+        ? resourceValue - coefficient
+        : coefficient - resourceValue;
+    });
 
     return {
       status: 'optimal',
+      direction,
       objective,
       constraints,
       primal: {
@@ -312,7 +328,7 @@
       dual: {
         variables: dualVariables,
         objectiveValue: dualValue,
-        excesses: dualExcesses,
+        slacks: dualSlacks,
         simplex: dual,
       },
     };
@@ -320,4 +336,3 @@
 
   window.LinearProgrammingSolver = { solveLinearProgram };
 })();
-

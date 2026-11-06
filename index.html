@@ -32,6 +32,7 @@
         <div class="objective-editor">
           <select id="objective-direction" class="field" aria-label="Dirección del objetivo">
             <option value="max">Maximizar Z</option>
+            <option value="min">Minimizar Z</option>
           </select>
           <div id="objective-variables" class="objective-variable-list"></div>
         </div>
@@ -43,9 +44,9 @@
         <div id="constraint-rows" class="constraint-list"></div>
         <button id="add-variable" class="text-button add-variable-button" type="button">＋ Añadir variable</button>
 
-        <p class="input-hint">
-          Modelo de maximización con restricciones ≤, disponibilidad no negativa y variables no negativas.
-          El gráfico aparece cuando el primal o el dual tiene dos variables.
+        <p id="input-hint" class="input-hint">
+          El signo de las restricciones se ajusta al objetivo: ≤ para maximizar y ≥ para minimizar.
+          Las variables son no negativas; el gráfico aparece cuando el primal o el dual tiene dos variables.
         </p>
         <div id="model-error"></div>
         <button id="solve-model" class="primary-button" type="button">Resolver primal y dual →</button>
@@ -91,4 +92,3 @@
   </main>
 </body>
 </html>
-

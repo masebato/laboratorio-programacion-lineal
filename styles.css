@@ -73,6 +73,9 @@ h1 { max-width: 800px; margin: 10px 0 8px; font-size: clamp(32px, 4vw, 49px); li
 .constraint-row input { padding: 7px 4px; text-align: center; font-size: 13px; }
 .constraint-row.many-variables { grid-template-columns: repeat(var(--variable-count), minmax(25px, 1fr)) 42px 58px 22px; }
 .constraint-row.many-variables input { padding-right: 2px; padding-left: 2px; }
+.constraint-header-row { margin: 9px 0 0; color: var(--muted); font-size: 10px; text-align: center; }
+.constraint-header-row span { overflow: hidden; }
+.constraint-header-row .relation-column-label, .constraint-header-row .rhs-column-label { white-space: nowrap; }
 .relation-symbol { text-align: center; color: #53635c; }
 .remove-button { height: 27px; border: 0; border-radius: 7px; background: #f7ece8; color: #9e4e30; font-size: 18px; }
 .add-variable-button { margin-top: 2px; }
@@ -143,4 +146,3 @@ th:first-child { text-align: left; }
   .tab-list { padding: 0 8px; }
   .tab-button { padding: 11px 8px; }
 }
-

@@ -33,9 +33,10 @@
 
   function readFormValues() {
     return {
+      direction: byId('objective-direction').value,
       objective: [...byId('objective-variables').querySelectorAll('.objective-coefficient')]
         .map((input) => Number(input.value)),
-      constraints: [...byId('constraint-rows').children].map((row) => ({
+      constraints: [...byId('constraint-rows').querySelectorAll('.constraint-data-row')].map((row) => ({
         coefficients: [...row.querySelectorAll('.constraint-coefficient')]
           .map((input) => Number(input.value)),
         rhs: Number(row.querySelector('.constraint-rhs').value),
@@ -44,10 +45,32 @@
   }
 
   function renderForm(model = null) {
+    if (model?.direction) byId('objective-direction').value = model.direction;
+    const direction = byId('objective-direction').value;
     const objectiveContainer = byId('objective-variables');
     const constraintContainer = byId('constraint-rows');
     objectiveContainer.replaceChildren();
     constraintContainer.replaceChildren();
+
+    const constraintHeader = document.createElement('div');
+    constraintHeader.className = `constraint-row constraint-header-row${variableCount >= 5 ? ' many-variables' : ''}`;
+    constraintHeader.style.setProperty('--variable-count', variableCount);
+    for (let variable = 0; variable < variableCount; variable += 1) {
+      const label = document.createElement('span');
+      label.className = 'coefficient-column-label';
+      label.textContent = `x${variable + 1}`;
+      constraintHeader.append(label);
+    }
+    const relationLabel = document.createElement('span');
+    relationLabel.className = 'relation-column-label';
+    relationLabel.textContent = 'sentido';
+    constraintHeader.append(relationLabel);
+    const rhsLabel = document.createElement('span');
+    rhsLabel.className = 'rhs-column-label';
+    rhsLabel.textContent = 'límite';
+    constraintHeader.append(rhsLabel);
+    constraintHeader.append(document.createElement('span'));
+    constraintContainer.append(constraintHeader);
 
     for (let variable = 0; variable < variableCount; variable += 1) {
       const variableRow = document.createElement('div');
@@ -76,7 +99,7 @@
 
     for (let constraint = 0; constraint < constraintCount; constraint += 1) {
       const constraintRow = document.createElement('div');
-      constraintRow.className = `constraint-row${variableCount >= 5 ? ' many-variables' : ''}`;
+      constraintRow.className = `constraint-row constraint-data-row${variableCount >= 5 ? ' many-variables' : ''}`;
       constraintRow.style.setProperty('--variable-count', variableCount);
 
       for (let variable = 0; variable < variableCount; variable += 1) {
@@ -91,8 +114,8 @@
 
       const relation = document.createElement('span');
       relation.className = 'relation-symbol';
-      relation.textContent = '≤';
-      relation.setAttribute('aria-label', 'menor o igual que');
+      relation.textContent = relationSymbol(direction);
+      relation.setAttribute('aria-label', direction === 'max' ? 'menor o igual que' : 'mayor o igual que');
       constraintRow.append(relation);
       constraintRow.append(makeNumberInput(
         model?.constraints[constraint]?.rhs ?? guideModel.constraints[constraint]?.rhs ?? 0,
@@ -111,6 +134,14 @@
       constraintRow.append(removeButton);
       constraintContainer.append(constraintRow);
     }
+
+    byId('input-hint').textContent = direction === 'max'
+      ? 'Maximizar: restricciones de recursos ≤ y variables no negativas.'
+      : 'Minimizar: restricciones de requerimientos ≥ y variables no negativas.';
+  }
+
+  function relationSymbol(direction) {
+    return direction === 'max' ? '≤' : '≥';
   }
 
   function removeVariable(index) {
@@ -140,7 +171,7 @@
       return 'Completa cada coeficiente y disponibilidad con un número.';
     }
     if (model.constraints.some((constraint) => constraint.rhs < 0)) {
-      return 'Las disponibilidades del primal deben ser no negativas.';
+      return 'En estas formas canónicas, el lado derecho de cada restricción debe ser no negativo.';
     }
     if (model.constraints.some((constraint) =>
       constraint.coefficients.every((value) => Math.abs(value) < 1e-12))) {
@@ -259,91 +290,116 @@
   }
 
   function renderPrimalPanel(model) {
+    const isMaximization = model.direction === 'max';
     const objective = formatLinearExpression(model.objective, (index) => `x${index + 1}`);
+    const relation = relationSymbol(model.direction);
     const constraintLines = model.constraints.map((constraint, index) => `
-      <div class="math-line">R${index + 1}: ${formatLinearExpression(constraint.coefficients, (variable) => `x${variable + 1}`)} ≤ ${NumberFormat.formatNumber(constraint.rhs)}</div>`).join('');
+      <div class="math-line">R${index + 1}: ${formatLinearExpression(constraint.coefficients, (variable) => `x${variable + 1}`)} ${relation} ${NumberFormat.formatNumber(constraint.rhs)}</div>`).join('');
     const slackEquations = model.constraints.map((constraint, index) => `
-      <div class="math-line">R${index + 1}: ${formatLinearExpression(constraint.coefficients, (variable) => `x${variable + 1}`)} + s${index + 1} = ${NumberFormat.formatNumber(constraint.rhs)}</div>`).join('');
+      <div class="math-line">R${index + 1}: ${formatLinearExpression(constraint.coefficients, (variable) => `x${variable + 1}`)} ${isMaximization ? '+' : '−'} ${isMaximization ? 's' : 'e'}${index + 1}${isMaximization ? '' : ` + r${index + 1}`} = ${NumberFormat.formatNumber(constraint.rhs)}</div>`).join('');
     const simplex = model.primal.simplex;
     const variableNames = simplex.phaseTwoNames;
+    const phaseOneSteps = simplex.phaseOne
+      ? renderSimplexSteps(simplex.phaseOne.steps, simplex.phaseOneNames, 'Fase I', 'V')
+      : '';
+    const phaseOneGuide = simplex.phaseOne
+      ? (isMaximization
+        ? '<p>Al normalizar una restricción, se requiere una artificial para iniciar la base. La Fase I busca llevarla a cero.</p>'
+        : '<p>Las restricciones ≥ agregan variables de exceso y artificiales. La Fase I busca llevar las artificiales a cero.</p>')
+      : '<p>Las holguras forman una base inicial factible; no se necesita Fase I.</p>';
+    const transformedObjective = isMaximization ? 'Z' : '−Z';
+    const phaseTwoTitle = isMaximization ? 'Primal · simplex' : 'Primal · maximizar −Z';
 
     byId('primal-panel').innerHTML = `
       <h3 class="section-title">2. Resolución del primal · simplex</h3>
       <section class="study-card">
         <h4>Paso 1 · Formula el problema</h4>
-        <div class="math-line">Maximizar Z = ${objective}</div>
+        <div class="math-line">${isMaximization ? 'Maximizar' : 'Minimizar'} Z = ${objective}</div>
         ${constraintLines}
         <div class="math-line">xⱼ ≥ 0 para cada actividad j.</div>
         <ol>
           <li>Las variables x representan cantidades de decisión.</li>
           <li>La función objetivo suma el aporte de cada actividad.</li>
-          <li>Cada restricción limita el consumo de un recurso.</li>
+          <li>${isMaximization ? 'Cada restricción limita el uso máximo disponible de un recurso.' : 'Cada restricción establece un requerimiento mínimo que debe cubrirse.'}</li>
         </ol>
       </section>
       <section class="study-card">
         <h4>Paso 2 · Pasa a forma estándar</h4>
-        <p>Se agrega una holgura sᵢ ≥ 0 a cada restricción de tipo ≤:</p>
+        <p>${isMaximization ? 'Se agrega una holgura sᵢ ≥ 0 a cada restricción ≤:' : 'Se resta una variable de exceso eᵢ ≥ 0 en cada restricción ≥:'}</p>
         ${slackEquations}
-        <p>Las holguras forman la base inicial; las variables de decisión comienzan en cero.</p>
+        ${phaseOneGuide}
+        <p>Las variables de decisión comienzan en cero.</p>
       </section>
-      <p class="procedure-hint"><b>Regla simplex:</b> entra la variable con costo reducido más negativo. Sale la variable básica asociada a la menor razón positiva.</p>
-      ${renderSimplexSteps(simplex.steps, variableNames, 'Primal', 'Z')}
+      ${phaseOneSteps}
+      <p class="procedure-hint"><b>Regla simplex:</b> se optimiza ${transformedObjective}. Entra la variable con costo reducido más negativo; sale la variable básica asociada a la menor razón positiva.</p>
+      ${renderSimplexSteps(simplex.steps, variableNames, phaseTwoTitle, transformedObjective)}
       <div class="result-metrics">
         <div class="metric"><small>Variables de decisión</small><strong>${model.primal.variables.map((value, index) => `x${index + 1} = ${NumberFormat.formatNumber(value)}`).join(' · ')}</strong></div>
-        <div class="metric"><small>Beneficio máximo</small><strong>${NumberFormat.formatNumber(model.primal.objectiveValue)}</strong><small>unidades del objetivo</small></div>
+        <div class="metric"><small>${isMaximization ? 'Valor máximo' : 'Valor mínimo'}</small><strong>${NumberFormat.formatNumber(model.primal.objectiveValue)}</strong><small>unidades del objetivo</small></div>
       </div>
       <div class="note">En cada iteración, las variables de la columna «Base» son básicas; las demás valen cero. La columna «Sol.» muestra sus valores.</div>`;
   }
 
   function renderDualPanel(model) {
-    const objective = formatLinearExpression(
+    const isMaximization = model.direction === 'max';
+    const dualDirection = isMaximization ? 'Minimizar' : 'Maximizar';
+    const dualRelation = isMaximization ? '≥' : '≤';
+    const objectiveLabel = isMaximization ? '−W' : 'W';
+    const dualObjective = formatLinearExpression(
       model.constraints.map((constraint) => constraint.rhs),
       (index) => `y${index + 1}`,
     );
     const dualConstraints = model.objective.map((coefficient, variable) => {
       const dualCoefficients = model.constraints.map((constraint) => constraint.coefficients[variable]);
-      return `<div class="math-line">${formatLinearExpression(dualCoefficients, (index) => `y${index + 1}`)} ≥ ${NumberFormat.formatNumber(coefficient)}</div>`;
+      return `<div class="math-line">${formatLinearExpression(dualCoefficients, (index) => `y${index + 1}`)} ${dualRelation} ${NumberFormat.formatNumber(coefficient)}</div>`;
     }).join('');
     const simplex = model.dual.simplex;
     const variableNames = simplex.phaseTwoNames;
     const phaseOneSteps = simplex.phaseOne
-      ? renderSimplexSteps(simplex.phaseOne.steps, simplex.phaseOneNames, 'Fase I', 'V')
+      ? renderSimplexSteps(simplex.phaseOne.steps, simplex.phaseOneNames, 'Fase I del dual', 'V')
       : '';
+    const phaseOneGuide = simplex.phaseOne
+      ? '<p>Las variables artificiales se minimizan mediante V = −Σrᵢ. Si V* = 0, se encontró una base factible y se retiran las artificiales.</p>'
+      : '<p>La base de holguras ya es factible; en este caso no se necesita Fase I.</p>';
 
     byId('dual-panel').innerHTML = `
       <h3 class="section-title">3. Formulación y resolución del dual</h3>
       <section class="study-card">
         <h4>Paso 1 · Construye el dual</h4>
-        <p>Se asigna una variable yᵢ ≥ 0 a cada recurso. Cada actividad del primal genera una restricción dual.</p>
-        <div class="math-line">Minimizar W = ${objective}</div>
+        <p>Se asigna una variable yᵢ ≥ 0 a cada restricción del primal. Cada variable xⱼ genera una restricción dual.</p>
+        <div class="math-line">${dualDirection} W = ${dualObjective}</div>
         ${dualConstraints}
-        <p>Los precios y valoran marginalmente los recursos. El objetivo dual es el valor total imputado a la capacidad disponible.</p>
+        <p>${isMaximization
+          ? 'En un primal de maximización con restricciones ≤, el dual es una minimización con restricciones ≥.'
+          : 'En un primal de minimización con restricciones ≥, el dual es una maximización con restricciones ≤.'}</p>
       </section>
       <section class="study-card">
-        <h4>Paso 2 · Fase I: encuentra una base factible</h4>
-        <p>Las restricciones ≥ incorporan variables de exceso y artificiales. La función auxiliar V = −Σrᵢ busca llevar todas las artificiales a cero.</p>
-        <p>Si el óptimo auxiliar vale cero, existe una solución factible del dual y se pueden retirar las columnas artificiales.</p>
+        <h4>${simplex.phaseOne ? 'Paso 2 · Fase I: base factible' : 'Paso 2 · Base inicial'}</h4>
+        <p>Las restricciones duales determinan si se puede empezar con holguras o si se necesita una base artificial.</p>
+        ${phaseOneGuide}
       </section>
       ${phaseOneSteps}
       <section class="study-card">
-        <h4>Paso 3 · Fase II: optimiza el dual</h4>
-        <p>El tableau maximiza −W, equivalente a minimizar W. Se continúa pivotando hasta que la fila objetivo no tenga coeficientes negativos.</p>
+        <h4>${simplex.phaseOne ? 'Paso 3 · Fase II: optimiza el dual' : 'Paso 3 · Optimiza el dual'}</h4>
+        <p>${isMaximization
+          ? 'El tableau maximiza −W, equivalente a minimizar W. Se detiene cuando no quedan costos reducidos negativos.'
+          : 'El tableau maximiza W directamente. Se detiene cuando no quedan costos reducidos negativos.'}</p>
       </section>
-      ${renderSimplexSteps(simplex.steps, variableNames, 'Fase II', '−W')}
+      ${renderSimplexSteps(simplex.steps, variableNames, simplex.phaseOne ? 'Fase II del dual' : 'Simplex dual', objectiveLabel)}
       <div class="result-metrics">
         <div class="metric"><small>Precios sombra</small><strong>${model.dual.variables.map((value, index) => `y${index + 1} = ${NumberFormat.formatNumber(value)}`).join(' · ')}</strong></div>
-        <div class="metric"><small>Valor dual mínimo</small><strong>${NumberFormat.formatNumber(model.dual.objectiveValue)}</strong><small>unidades del objetivo</small></div>
-        <div class="metric"><small>Brecha primal − dual</small><strong>${NumberFormat.formatNumber(model.dual.objectiveValue - model.primal.objectiveValue)}</strong></div>
+        <div class="metric"><small>${isMaximization ? 'Valor dual mínimo' : 'Valor dual máximo'}</small><strong>${NumberFormat.formatNumber(model.dual.objectiveValue)}</strong><small>unidades del objetivo</small></div>
+        <div class="metric"><small>Brecha primal − dual</small><strong>${NumberFormat.formatNumber(model.primal.objectiveValue - model.dual.objectiveValue)}</strong></div>
       </div>
-      <div class="note">La dualidad fuerte afirma que Z* = W*. La igualdad de ambos valores certifica que las soluciones primal y dual son óptimas.</div>`;
+      <div class="note">La dualidad fuerte afirma que los óptimos primal y dual tienen el mismo valor.</div>`;
   }
 
   function renderSensitivityPanel(model) {
     const activityRows = model.objective.map((coefficient, index) => {
       const value = model.primal.variables[index];
-      const excess = model.dual.excesses[index];
-      const product = value * excess;
-      return `<tr><th scope="row">x${index + 1}</th><td>${NumberFormat.formatNumber(value)}</td><td>${NumberFormat.formatNumber(excess)}</td><td>${NumberFormat.formatNumber(product)} ${Math.abs(product) < 1e-6 ? '✓' : ''}</td></tr>`;
+      const dualSlack = model.dual.slacks[index];
+      const product = value * dualSlack;
+      return `<tr><th scope="row">x${index + 1}</th><td>${NumberFormat.formatNumber(value)}</td><td>${NumberFormat.formatNumber(dualSlack)}</td><td>${NumberFormat.formatNumber(product)} ${Math.abs(product) < 1e-6 ? '✓' : ''}</td></tr>`;
     }).join('');
 
     const resourceRows = model.constraints.map((constraint, index) => {
@@ -371,25 +427,28 @@
       </div>
       <section class="study-card">
         <h4>Complementariedad por actividad</h4>
-        <p>El exceso dual es Aᵀy − c. Para cada actividad debe cumplirse xⱼ(Aᵀy − cⱼ) = 0.</p>
-        <div class="table-scroll"><table><thead><tr><th>Actividad</th><th>xⱼ</th><th>Exceso dual</th><th>Producto complementario</th></tr></thead><tbody>${activityRows}</tbody></table></div>
+        <p>La holgura dual es ${model.direction === 'max' ? 'Aᵀy − c' : 'c − Aᵀy'}. Para cada actividad debe cumplirse xⱼ · holguraDualⱼ = 0.</p>
+        <div class="table-scroll"><table><thead><tr><th>Actividad</th><th>xⱼ</th><th>Holgura dual</th><th>Producto complementario</th></tr></thead><tbody>${activityRows}</tbody></table></div>
       </section>
       <section class="study-card">
         <h4>Complementariedad por recurso</h4>
-        <p>La holgura es capacidad disponible menos capacidad usada. Para cada recurso debe cumplirse yᵢ · holguraᵢ = 0.</p>
-        <div class="table-scroll"><table><thead><tr><th>Recurso</th><th>Disponible</th><th>Usado</th><th>Holgura</th><th>Precio sombra</th><th>Producto complementario</th></tr></thead><tbody>${resourceRows}</tbody></table></div>
+        <p>La holgura es ${model.direction === 'max' ? 'capacidad disponible menos capacidad usada' : 'capacidad usada menos el requerimiento mínimo'}. Para cada recurso debe cumplirse yᵢ · holguraᵢ = 0.</p>
+        <div class="table-scroll"><table><thead><tr><th>Recurso</th><th>${model.direction === 'max' ? 'Máximo disponible' : 'Mínimo requerido'}</th><th>Usado</th><th>Holgura</th><th>Precio sombra</th><th>Producto complementario</th></tr></thead><tbody>${resourceRows}</tbody></table></div>
       </section>
       <section class="study-card">
         <h4>Cómo interpretar el precio sombra</h4>
-        <p>yᵢ estima cuánto aumentaría el valor óptimo si se agregara una unidad del recurso i, siempre que el cambio sea pequeño y la base óptima se mantenga.</p>
-        <p>Una holgura positiva implica precio sombra cero. Un precio sombra positivo implica que el recurso se usa por completo.</p>
+        <p>${model.direction === 'max'
+          ? 'yᵢ estima cuánto aumentaría el beneficio óptimo al agregar una unidad de disponibilidad del recurso i.'
+          : 'yᵢ estima cuánto aumentaría el costo mínimo al elevar en una unidad el requerimiento del recurso i.'} La interpretación es marginal y supone que la base óptima se mantiene.</p>
+        <p>Una holgura positiva implica precio sombra cero. Un precio sombra positivo implica que la restricción del recurso es vinculante.</p>
       </section>
       <div class="note">Los precios sombra describen el entorno de la solución actual. Esta versión no calcula los intervalos completos de sensibilidad.</div>`;
   }
 
   function renderResult(model) {
     lastSolution = model;
-    byId('objective-result').textContent = `Z* = ${NumberFormat.formatNumber(model.primal.objectiveValue)}`;
+    const optimumLabel = model.direction === 'max' ? 'Máximo Z' : 'Mínimo Z';
+    byId('objective-result').textContent = `${optimumLabel} = ${NumberFormat.formatNumber(model.primal.objectiveValue)}`;
     byId('variable-result').textContent = model.primal.variables
       .map((value, index) => `x${index + 1} = ${NumberFormat.formatNumber(value)}`).join(' · ');
 
@@ -418,7 +477,7 @@
       : '';
     if (validationMessage) return;
 
-    const result = Solver.solveLinearProgram(model.objective, model.constraints);
+    const result = Solver.solveLinearProgram(model.objective, model.constraints, model.direction);
     if (result.status !== 'optimal') {
       byId('model-error').innerHTML = `<div class="error-message" role="alert">${describeSolverStatus(result.status)}</div>`;
       return;
@@ -448,6 +507,7 @@
   }
 
   function loadGuideModel() {
+    byId('objective-direction').value = 'max';
     variableCount = guideModel.objective.length;
     constraintCount = guideModel.constraints.length;
     renderForm(guideModel);
@@ -471,6 +531,11 @@
   }
 
   function connectControls() {
+    byId('objective-direction').addEventListener('change', () => {
+      const model = readFormValues();
+      renderForm(model);
+      solveCurrentModel();
+    });
     byId('solve-model').addEventListener('click', solveCurrentModel);
     byId('load-guide').addEventListener('click', loadGuideModel);
     byId('add-variable').addEventListener('click', addVariable);
@@ -492,4 +557,3 @@
 
   startApplication();
 })();
-

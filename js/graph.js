@@ -24,7 +24,8 @@
         objectiveName: 'Z',
         objective: model.objective,
         optimum: model.primal.variables,
-        relation: 'le',
+        relation: model.direction === 'max' ? 'le' : 'ge',
+        objectiveDirection: model.direction,
         constraints: model.constraints.map((constraint, index) => ({
           coefficients: constraint.coefficients,
           rhs: constraint.rhs,
@@ -39,7 +40,8 @@
       objectiveName: 'W',
       objective: model.constraints.map((constraint) => constraint.rhs),
       optimum: model.dual.variables,
-      relation: 'ge',
+      relation: model.direction === 'max' ? 'ge' : 'le',
+      objectiveDirection: model.direction === 'max' ? 'min' : 'max',
       // Cada variable primal genera una restricción en el dual.
       constraints: model.objective.map((coefficient, variableIndex) => ({
         coefficients: model.constraints.map((constraint) =>
@@ -58,7 +60,7 @@
       .filter((intercept) => intercept > 0);
     const optimum = Math.max(0, problem.optimum[axis] || 0);
 
-    if (problem.kind === 'primal') {
+    if (problem.relation === 'le') {
       const feasibleLimit = intercepts.length ? Math.min(...intercepts) : optimum * 1.35;
       return Math.max(1, optimum * 1.3, feasibleLimit * 1.08);
     }
@@ -210,9 +212,13 @@
     const viewOptions = views.map((option) =>
       `<option value="${option}" ${option === view ? 'selected' : ''}>${option === 'primal' ? 'Primal (x₁, x₂)' : 'Dual (y₁, y₂)'}</option>`
     ).join('');
-    const description = problem.kind === 'primal'
-      ? 'Para restricciones ≤, el origen identifica el semiplano que se conserva. La recta Z pasa por el último vértice que mejora el beneficio.'
-      : 'Para restricciones ≥, la región conserva el semiplano que satisface cada cota. La recta W llega a su menor valor en el punto óptimo.';
+    const relationDescription = problem.relation === 'le'
+      ? 'Se conserva el semiplano que satisface las restricciones ≤.'
+      : 'Se conserva el semiplano que satisface las restricciones ≥.';
+    const objectiveDescription = problem.objectiveDirection === 'max'
+      ? `La recta ${problem.objectiveName} se desplaza hacia valores mayores hasta tocar el óptimo.`
+      : `La recta ${problem.objectiveName} se desplaza hacia valores menores hasta tocar el óptimo.`;
+    const description = `${relationDescription} ${objectiveDescription}`;
     const axisNames = problem.variableNames;
 
     return `
@@ -225,8 +231,8 @@
         <b>Cómo leer el gráfico.</b>
         <ol>
           <li>Cada recta de color representa una restricción. En el dual, hay una por cada actividad del primal.</li>
-          <li>El área sombreada muestra la intersección de los semiplanos con las condiciones de no negatividad. ${description}</li>
-          <li>La línea punteada es una recta de nivel de la función objetivo que pasa por el óptimo. Al desplazarla hacia la dirección de mejora se observa por qué ese punto es óptimo.</li>
+          <li>El área sombreada muestra la intersección de los semiplanos con las condiciones de no negatividad: ${relationDescription}</li>
+          <li>La línea punteada es una recta de nivel de la función objetivo que pasa por el óptimo. ${objectiveDescription}</li>
         </ol>
       </div>
       <div class="legend">● Restricciones &nbsp; <span style="color:#5b9b7a">■ Región factible</span> &nbsp; <span style="color:#176b52">┄ Función objetivo en el óptimo</span></div>
@@ -247,4 +253,3 @@
 
   window.LinearProgrammingGraph = { renderGraph, availableViews };
 })();
-
