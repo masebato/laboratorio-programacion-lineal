@@ -211,6 +211,21 @@
     return `<div class="table-scroll"><table class="tableau"><thead><tr><th>Base</th>${headings}<th scope="col">Sol.</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
+  function renderOperationEquation(expression, fallbackText) {
+    if (window.katex?.renderToString) {
+      try {
+        const rendered = window.katex.renderToString(expression, {
+          displayMode: true,
+          throwOnError: false,
+        });
+        return `<div class="operation-equation">${rendered}</div>`;
+      } catch (error) {
+        // Keep the operation readable if the mathematical typesetting fails.
+      }
+    }
+    return `<div class="operation-equation operation-equation-fallback">${fallbackText}</div>`;
+  }
+
   function renderSimplexSteps(steps, variableNames, title, objectiveLabel) {
     if (!steps) return '';
 
@@ -252,22 +267,34 @@
               </tr>`).join('')}</tbody>
           </table></div>`;
 
-        const formatRowValues = (values) => `[${values.map(NumberFormat.formatNumber).join(', ')}]`;
+        const formatMathNumber = (value) => {
+          const formatted = NumberFormat.formatNumber(value);
+          const fraction = formatted.match(/^(-?\d+)\/(\d+)$/);
+          return fraction ? `\\frac{${fraction[1]}}{${fraction[2]}}` : formatted;
+        };
+        const formatRowValues = (values) => `\\left[${values.map((value) => formatMathNumber(value)).join(',\\;')}\\right]`;
+        const formatPlainRowValues = (values) => `[${values.map((value) => NumberFormat.formatNumber(value)).join(', ')}]`;
         const originalPivotRow = step.tableau[pivotRow];
         const normalizedPivotRow = originalPivotRow.map((value) => value / pivotValue);
-        const normalizePivotRow = `
-          <div class="math-line">R${pivotRow + 1} nueva = ${formatRowValues(originalPivotRow)} ÷ ${NumberFormat.formatNumber(pivotValue)} = ${formatRowValues(normalizedPivotRow)}</div>`;
+        const normalizePivotMath = `R_{${pivotRow + 1}}^{\\text{nueva}} = ${formatRowValues(originalPivotRow)} \\div ${formatMathNumber(pivotValue)} = ${formatRowValues(normalizedPivotRow)}`;
+        const normalizePivotFallback = `R${pivotRow + 1} nueva = ${formatPlainRowValues(originalPivotRow)} ÷ ${NumberFormat.formatNumber(pivotValue)} = ${formatPlainRowValues(normalizedPivotRow)}`;
+        const normalizePivotRow = renderOperationEquation(normalizePivotMath, normalizePivotFallback);
         const rowOperations = step.tableau.map((row, rowIndex) => {
           if (rowIndex === pivotRow) return '';
           const isObjectiveRow = rowIndex === step.tableau.length - 1;
-          const rowName = isObjectiveRow ? objectiveLabel : `R${rowIndex + 1}`;
-          const position = isObjectiveRow
-            ? 'fila objetivo'
-            : rowIndex < pivotRow ? 'fila de arriba' : 'fila de abajo';
+          const rowName = isObjectiveRow
+            ? `\\mathrm{${objectiveLabel.replace('−', '-')}}`
+            : `R_{${rowIndex + 1}}`;
+          const plainRowName = isObjectiveRow ? objectiveLabel : `R${rowIndex + 1}`;
           const factor = row[enteringColumn];
           const updatedRow = row.map((value, column) => value - factor * normalizedPivotRow[column]);
-          return `<div class="math-line"><b>${position}:</b> ${rowName} nueva = ${formatRowValues(row)} − (${NumberFormat.formatNumber(factor)}) × ${formatRowValues(normalizedPivotRow)} = ${formatRowValues(updatedRow)}</div>`;
-        }).join('');
+          const math = `${rowName}^{\\text{nueva}} &= ${formatRowValues(row)} - (${formatMathNumber(factor)}) \\times ${formatRowValues(normalizedPivotRow)} = ${formatRowValues(updatedRow)}`;
+          const fallback = `${plainRowName} nueva = ${formatPlainRowValues(row)} − (${NumberFormat.formatNumber(factor)}) × ${formatPlainRowValues(normalizedPivotRow)} = ${formatPlainRowValues(updatedRow)}`;
+          return { math, fallback };
+        }).filter(Boolean);
+        const rowOperationsMath = `\\begin{aligned}${rowOperations.map((operation) => operation.math).join(' \\\\ ')}\\end{aligned}`;
+        const rowOperationsFallback = rowOperations.map((operation) => operation.fallback).join(' · ');
+        const rowOperationsMarkup = renderOperationEquation(rowOperationsMath, rowOperationsFallback);
 
         pivotExplanation = `
           <div class="pivot-explanation">
@@ -283,7 +310,7 @@
             <br><b>4. Convertimos el pivote en 1.</b> Dividimos toda la fila pivote entre ${NumberFormat.formatNumber(pivotValue)}:
             ${normalizePivotRow}
             <b>5. Hacemos cero el resto de la columna.</b> Usamos la fila pivote ya normalizada, primero en las filas de arriba y abajo y también en la fila objetivo:
-            ${rowOperations}
+            ${rowOperationsMarkup}
           </div>`;
       }
 

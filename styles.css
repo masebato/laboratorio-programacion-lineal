@@ -118,6 +118,9 @@ h1 { max-width: 800px; margin: 10px 0 8px; font-size: clamp(32px, 4vw, 49px); li
 .tableau-stage { margin: 10px 12px 13px; }
 .tableau-stage h4 { margin: 0 0 6px; color: #304a3d; font-size: 13px; }
 .pivot-explanation { padding: 11px 13px 3px; color: #46564e; font-size: 12px; }
+.operation-equation { max-width: 100%; margin: 8px 0 11px; overflow-x: auto; border-left: 3px solid #c4dccb; background: #f7faf7; padding: 8px 10px; color: #203c2e; font-size: 13px; }
+.operation-equation .katex-display { margin: .25em 0; text-align: left; }
+.operation-equation-fallback { overflow-wrap: anywhere; }
 .table-scroll { max-width: 100%; overflow: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
 th, td { border-bottom: 1px solid #edf0eb; padding: 7px 9px; text-align: right; }

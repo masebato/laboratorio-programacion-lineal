@@ -24,7 +24,7 @@ Permite hasta 12 variables de decisión. El método gráfico está disponible cu
 
 ## Uso
 
-Abre `index.html` en un navegador moderno, ingresa los datos del modelo y selecciona **Resolver primal y dual**. No requiere instalación, compilación ni dependencias externas.
+Abre `index.html` en un navegador moderno, ingresa los datos del modelo y selecciona **Resolver primal y dual**. No requiere instalación ni compilación. KaTeX se carga desde jsDelivr para componer las operaciones; si el CDN no está disponible, se muestran en texto plano.
 
 ## Estructura
 
