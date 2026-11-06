@@ -8,8 +8,8 @@
   const NumberFormat = window.ModelNumberFormat;
   const byId = (id) => document.getElementById(id);
 
-  let variableCount = 5;
-  let constraintCount = 2;
+  let variableCount = 2;
+  let constraintCount = 1;
   let lastSolution = null;
   let graphView = 'primal';
 
@@ -26,7 +26,7 @@
     input.className = `field ${className}`;
     input.type = 'number';
     input.step = 'any';
-    input.value = value;
+    input.value = value ?? '';
     input.setAttribute('aria-label', accessibleName);
     return input;
   }
@@ -35,11 +35,13 @@
     return {
       direction: byId('objective-direction').value,
       objective: [...byId('objective-variables').querySelectorAll('.objective-coefficient')]
-        .map((input) => Number(input.value)),
+        .map((input) => input.value.trim() === '' ? NaN : Number(input.value)),
       constraints: [...byId('constraint-rows').querySelectorAll('.constraint-data-row')].map((row) => ({
         coefficients: [...row.querySelectorAll('.constraint-coefficient')]
-          .map((input) => Number(input.value)),
-        rhs: Number(row.querySelector('.constraint-rhs').value),
+          .map((input) => input.value.trim() === '' ? NaN : Number(input.value)),
+        rhs: row.querySelector('.constraint-rhs').value.trim() === ''
+          ? NaN
+          : Number(row.querySelector('.constraint-rhs').value),
       })),
     };
   }
@@ -80,7 +82,7 @@
       name.textContent = `x${variable + 1}`;
       variableRow.append(name);
       variableRow.append(makeNumberInput(
-        model?.objective[variable] ?? guideModel.objective[variable] ?? 0,
+        model?.objective[variable],
         'objective-coefficient',
         `Coeficiente de x${variable + 1}`,
       ));
@@ -103,8 +105,7 @@
       constraintRow.style.setProperty('--variable-count', variableCount);
 
       for (let variable = 0; variable < variableCount; variable += 1) {
-        const defaultCoefficient = guideModel.constraints[constraint]?.coefficients[variable] ?? 0;
-        const value = model?.constraints[constraint]?.coefficients[variable] ?? defaultCoefficient;
+        const value = model?.constraints[constraint]?.coefficients[variable];
         constraintRow.append(makeNumberInput(
           value,
           'constraint-coefficient',
@@ -118,7 +119,7 @@
       relation.setAttribute('aria-label', direction === 'max' ? 'menor o igual que' : 'mayor o igual que');
       constraintRow.append(relation);
       constraintRow.append(makeNumberInput(
-        model?.constraints[constraint]?.rhs ?? guideModel.constraints[constraint]?.rhs ?? 0,
+        model?.constraints[constraint]?.rhs,
         'constraint-rhs',
         `Disponibilidad de la restricción ${constraint + 1}`,
       ));
@@ -279,12 +280,24 @@
         ? 'tableau final'
         : `entra ${variableNames[step.enteringVariable]}, sale ${step.leavingVariable}`;
       const open = index === 0 || index === steps.length - 1 ? 'open' : '';
+      const beforeTableau = `
+        <div class="tableau-stage">
+          <h4>${step.enteringVariable === null ? 'Tableau actual' : 'Tableau antes de la operación'}</h4>
+          ${renderTableau(step.tableau, step.basis, variableNames, objectiveLabel)}
+        </div>`;
+      const afterStep = steps[index + 1];
+      const afterTableau = step.enteringVariable === null || !afterStep ? '' : `
+        <div class="tableau-stage">
+          <h4>Tableau después de la operación</h4>
+          ${renderTableau(afterStep.tableau, afterStep.basis, variableNames, objectiveLabel)}
+        </div>`;
 
       return `
         <details class="iteration" ${open}>
           <summary>${title} · iteración ${index} · ${pivotLabel}</summary>
+          ${beforeTableau}
           ${pivotExplanation}
-          ${renderTableau(step.tableau, step.basis, variableNames, objectiveLabel)}
+          ${afterTableau}
         </details>`;
     }).join('');
   }
@@ -486,6 +499,17 @@
     renderResult(result);
   }
 
+  function clearResults() {
+    lastSolution = null;
+    byId('objective-result').textContent = 'Ingresa un modelo';
+    byId('variable-result').textContent = '';
+    byId('model-error').replaceChildren();
+    const emptyPanel = '<div class="empty"><div><i>⌁</i>Completa los datos del modelo y selecciona «Resolver primal y dual» para ver el procedimiento paso a paso.</div></div>';
+    ['primal-panel', 'dual-panel', 'graph-panel', 'sensitivity-panel']
+      .forEach((id) => { byId(id).innerHTML = emptyPanel; });
+    selectPanel('primal-panel');
+  }
+
   function describeSolverStatus(status) {
     const messages = {
       infeasible: 'El modelo no tiene una solución factible.',
@@ -514,18 +538,26 @@
     solveCurrentModel();
   }
 
+  function clearModel() {
+    byId('objective-direction').value = 'max';
+    variableCount = 2;
+    constraintCount = 1;
+    renderForm({ objective: [], constraints: [] });
+    clearResults();
+  }
+
   function addVariable() {
     if (variableCount >= 12) return;
     const model = readFormValues();
-    model.objective.push(0);
-    model.constraints.forEach((constraint) => constraint.coefficients.push(0));
+    model.objective.push(null);
+    model.constraints.forEach((constraint) => constraint.coefficients.push(null));
     variableCount += 1;
     renderForm(model);
   }
 
   function addConstraint() {
     const model = readFormValues();
-    model.constraints.push({ coefficients: Array(variableCount).fill(0), rhs: 0 });
+    model.constraints.push({ coefficients: Array(variableCount).fill(null), rhs: null });
     constraintCount += 1;
     renderForm(model);
   }
@@ -534,12 +566,13 @@
     byId('objective-direction').addEventListener('change', () => {
       const model = readFormValues();
       renderForm(model);
-      solveCurrentModel();
+      clearResults();
     });
     byId('solve-model').addEventListener('click', solveCurrentModel);
     byId('load-guide').addEventListener('click', loadGuideModel);
     byId('add-variable').addEventListener('click', addVariable);
     byId('add-constraint').addEventListener('click', addConstraint);
+    byId('clear-model').addEventListener('click', clearModel);
     byId('number-format').addEventListener('change', () => {
       if (lastSolution) renderResult(lastSolution);
     });
@@ -552,7 +585,7 @@
   function startApplication() {
     renderForm();
     connectControls();
-    solveCurrentModel();
+    clearResults();
   }
 
   startApplication();

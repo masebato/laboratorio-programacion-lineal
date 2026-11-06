@@ -52,9 +52,12 @@ h1 { max-width: 800px; margin: 10px 0 8px; font-size: clamp(32px, 4vw, 49px); li
 .field { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); padding: 8px 9px; }
 .field:focus { outline: 2px solid #b4d7c5; border-color: var(--green); }
 
-.objective-editor { display: grid; grid-template-columns: minmax(105px, .8fr) minmax(0, 1.2fr); gap: 8px; }
-.objective-variable-list { display: grid; min-width: 0; gap: 7px; }
-.objective-variable { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.objective-editor { display: grid; min-width: 0; gap: 9px; }
+.variable-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
+.variable-heading .field-label { margin: 0; }
+.objective-variable-list { display: grid; min-width: 0; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 7px; }
+.objective-variable { display: grid; min-width: 0; grid-template-columns: 22px minmax(0, 1fr) 25px; align-items: center; gap: 5px; }
+.objective-variable .field { min-width: 0; padding: 7px 5px; text-align: center; }
 .objective-variable span { color: #53635c; font-size: 13px; white-space: nowrap; }
 .variable-remove { flex: 0 0 25px; width: 25px; height: 27px; padding: 0; }
 .remove-button:disabled { opacity: .35; cursor: not-allowed; }
@@ -78,11 +81,12 @@ h1 { max-width: 800px; margin: 10px 0 8px; font-size: clamp(32px, 4vw, 49px); li
 .constraint-header-row .relation-column-label, .constraint-header-row .rhs-column-label { white-space: nowrap; }
 .relation-symbol { text-align: center; color: #53635c; }
 .remove-button { height: 27px; border: 0; border-radius: 7px; background: #f7ece8; color: #9e4e30; font-size: 18px; }
-.add-variable-button { margin-top: 2px; }
 .input-hint, .procedure-hint { color: var(--muted); font-size: 11px; }
 .input-hint { margin: 9px 0 14px; }
 .primary-button { width: 100%; border: 0; border-radius: 9px; background: var(--green); color: white; padding: 11px 14px; font-weight: 750; }
 .primary-button:hover { background: #10543f; }
+.secondary-button { width: 100%; margin-top: 7px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); padding: 9px 14px; font-weight: 700; }
+.secondary-button:hover { background: #f4f8f4; border-color: #bed6c9; }
 .guide-link { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
 .guide-link button { border: 0; padding: 0; background: none; color: var(--green); text-decoration: underline; }
 .error-message { margin-bottom: 11px; border-radius: 8px; background: #fff0e9; color: #9b452b; padding: 10px; font-size: 13px; }
@@ -111,6 +115,8 @@ h1 { max-width: 800px; margin: 10px 0 8px; font-size: clamp(32px, 4vw, 49px); li
 .math-line { margin: 5px 0; color: #233e31; font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
 .iteration { margin: 9px 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; }
 .iteration summary { cursor: pointer; background: #fafbf8; padding: 10px 12px; font-size: 13px; font-weight: 750; }
+.tableau-stage { margin: 10px 12px 13px; }
+.tableau-stage h4 { margin: 0 0 6px; color: #304a3d; font-size: 13px; }
 .pivot-explanation { padding: 11px 13px 3px; color: #46564e; font-size: 12px; }
 .table-scroll { max-width: 100%; overflow: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }

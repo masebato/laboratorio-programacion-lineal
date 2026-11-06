@@ -34,6 +34,10 @@
             <option value="max">Maximizar Z</option>
             <option value="min">Minimizar Z</option>
           </select>
+          <div class="variable-heading">
+            <span class="field-label">Variables de decisión</span>
+            <button id="add-variable" class="text-button" type="button">＋ Añadir variable</button>
+          </div>
           <div id="objective-variables" class="objective-variable-list"></div>
         </div>
 
@@ -42,14 +46,13 @@
           <button id="add-constraint" class="text-button" type="button">＋ Añadir fila</button>
         </div>
         <div id="constraint-rows" class="constraint-list"></div>
-        <button id="add-variable" class="text-button add-variable-button" type="button">＋ Añadir variable</button>
-
         <p id="input-hint" class="input-hint">
           El signo de las restricciones se ajusta al objetivo: ≤ para maximizar y ≥ para minimizar.
           Las variables son no negativas; el gráfico aparece cuando el primal o el dual tiene dos variables.
         </p>
         <div id="model-error"></div>
         <button id="solve-model" class="primary-button" type="button">Resolver primal y dual →</button>
+        <button id="clear-model" class="secondary-button" type="button">Limpiar datos</button>
         <p class="guide-link">Usar un ejemplo: <button id="load-guide" type="button">Caso guía</button></p>
       </section>
 
@@ -57,7 +60,7 @@
         <div class="card result-summary">
           <div>
             <span class="muted-label">Óptimo primal</span>
-            <strong id="objective-result" class="objective-result">Calculando…</strong>
+            <strong id="objective-result" class="objective-result">Ingresa un modelo</strong>
           </div>
           <div id="variable-result" class="variable-result"></div>
         </div>
