@@ -302,6 +302,21 @@
     }).join('');
   }
 
+  function renderReducedCostGuide(isMaximization) {
+    const transformedObjective = isMaximization
+      ? 'En la Fase II de este primal, Q = Z.'
+      : 'En la Fase II de este primal, Q = −Z, para convertir la minimización en una maximización.';
+
+    return `
+      <section class="study-card">
+        <h4>¿Por qué aparecen esos signos en la fila objetivo?</h4>
+        <p>El tableau expresa el objetivo que se está maximizando, Q = Σc′ⱼxⱼ, como una ecuación igualada a cero:</p>
+        <div class="math-line">Q − c′₁x₁ − c′₂x₂ − ⋯ − c′ₙxₙ = 0</div>
+        <p>Por ejemplo, si Z = 5x₁ + 3x₂, se escribe Z − 5x₁ − 3x₂ = 0. Al pasar cada término al lado izquierdo, la fila empieza con −c′ⱼ: un coeficiente objetivo positivo aparece negativo, y uno negativo aparece positivo. ${transformedObjective} En la Fase I, Q es el objetivo auxiliar V y se aplica la misma convención.</p>
+        <p>Después de ajustar la fila para que las variables básicas tengan coeficiente cero, sus entradas son costos reducidos (zⱼ − c′ⱼ), así que no necesariamente todas quedan negativas. Un costo reducido negativo indica que aumentar esa variable puede mejorar Q; cuando ya no quedan negativos, se alcanzó el óptimo.</p>
+      </section>`;
+  }
+
   function renderPrimalPanel(model) {
     const isMaximization = model.direction === 'max';
     const objective = formatLinearExpression(model.objective, (index) => `x${index + 1}`);
@@ -343,6 +358,7 @@
         ${phaseOneGuide}
         <p>Las variables de decisión comienzan en cero.</p>
       </section>
+      ${renderReducedCostGuide(isMaximization)}
       ${phaseOneSteps}
       <p class="procedure-hint"><b>Regla simplex:</b> se optimiza ${transformedObjective}. Entra la variable con costo reducido más negativo; sale la variable básica asociada a la menor razón positiva.</p>
       ${renderSimplexSteps(simplex.steps, variableNames, phaseTwoTitle, transformedObjective)}
@@ -397,6 +413,7 @@
         <p>${isMaximization
           ? 'El tableau maximiza −W, equivalente a minimizar W. Se detiene cuando no quedan costos reducidos negativos.'
           : 'El tableau maximiza W directamente. Se detiene cuando no quedan costos reducidos negativos.'}</p>
+        <p>La fila objetivo también se escribe como una ecuación igualada a cero. Por eso se usan los opuestos de los coeficientes del objetivo que el tableau está maximizando (${isMaximization ? '−W' : 'W'}). Tras ajustar las variables básicas, los valores son costos reducidos; un valor negativo indica una mejora posible en ese objetivo transformado.</p>
       </section>
       ${renderSimplexSteps(simplex.steps, variableNames, simplex.phaseOne ? 'Fase II del dual' : 'Simplex dual', objectiveLabel)}
       <div class="result-metrics">
