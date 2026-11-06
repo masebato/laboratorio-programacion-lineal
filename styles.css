@@ -119,8 +119,33 @@ h1 { max-width: 800px; margin: 10px 0 8px; font-size: clamp(32px, 4vw, 49px); li
 .tableau-stage h4 { margin: 0 0 6px; color: #304a3d; font-size: 13px; }
 .pivot-explanation { padding: 11px 13px 3px; color: #46564e; font-size: 12px; }
 .operation-equation { max-width: 100%; margin: 8px 0 11px; overflow-x: auto; border-left: 3px solid #c4dccb; background: #f7faf7; padding: 8px 10px; color: #203c2e; font-size: 13px; }
-.operation-equation .katex-display { margin: .25em 0; text-align: left; }
-.operation-equation-fallback { overflow-wrap: anywhere; }
+.operation-equation-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; color: #53635c; font-size: 11px; font-weight: 750; }
+.math-help { flex: 0 0 auto; border: 1px solid #9bbca6; border-radius: 7px; background: #fff; color: var(--green); padding: 4px 8px; font-size: 11px; font-weight: 750; }
+.math-help:hover, .math-help:focus-visible { background: #eaf4ed; outline: 2px solid #b4d7c5; outline-offset: 1px; }
+.operation-row-group { margin-top: 10px; }
+.operation-row-group + .operation-row-group { border-top: 1px solid #e3ebe4; padding-top: 10px; }
+.operation-row-group h4 { margin: 0 0 5px; color: #40524a; font-size: 12px; }
+.operation-column-table { min-width: 355px; }
+.operation-column-table th:first-child { width: 85px; }
+.operation-column-table td { text-align: left; }
+.math-help-dialog { width: min(590px, calc(100% - 30px)); max-width: 590px; max-height: min(82vh, 760px); overflow: auto; border: 1px solid #d3dfd5; border-radius: 16px; background: #fff; color: var(--ink); padding: 22px 24px; box-shadow: 0 22px 70px #10251d40; }
+.math-help-dialog::backdrop { background: #10251d88; backdrop-filter: blur(2px); }
+.math-help-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dialog-close { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: var(--muted); font-size: 22px; line-height: 1; }
+.dialog-close:hover, .dialog-close:focus-visible { background: #f2f6f2; color: var(--ink); }
+.math-help-dialog h2 { margin: 12px 0 16px; font-size: 23px; line-height: 1.2; }
+.help-steps { display: grid; gap: 10px; margin: 0; padding-left: 22px; color: #40524a; font-size: 14px; }
+.help-steps li { padding-left: 3px; }
+.help-example { margin-top: 18px; border: 1px solid #dce9df; border-radius: 11px; background: #f7faf7; padding: 14px; }
+.help-example h3 { margin: 0 0 7px; color: var(--green); font-size: 14px; }
+.help-example p, .help-takeaway { margin: 7px 0; color: #53635c; font-size: 13px; }
+.help-column-steps { display: grid; gap: 8px; margin: 12px 0; }
+.help-column-steps > div { display: grid; grid-template-columns: minmax(120px, .65fr) minmax(0, 1fr); align-items: center; gap: 8px; border: 1px solid #e4ebe5; border-radius: 8px; background: #fff; padding: 8px; }
+.help-column-steps > div > b { color: #40524a; font-size: 12px; }
+.help-equation { max-width: 100%; overflow-x: auto; margin: 10px 0; border-radius: 7px; background: #fff; padding: 10px; }
+.help-equation .katex-display { margin: .25em 0; text-align: left; }
+.help-equation-fallback { font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.help-takeaway { margin-top: 15px; border-left: 3px solid #9bbca6; padding: 6px 10px; }
 .table-scroll { max-width: 100%; overflow: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
 th, td { border-bottom: 1px solid #edf0eb; padding: 7px 9px; text-align: right; }
@@ -148,6 +173,8 @@ th:first-child { text-align: left; }
 
 @media (max-width: 540px) {
   .page-content { padding: 27px 12px; }
+  .math-help-dialog { padding: 17px 14px; }
+  .help-column-steps > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .constraint-row.many-variables { grid-template-columns: repeat(var(--variable-count), minmax(26px, 1fr)) 40px 52px 22px; gap: 3px; }
   .constraint-row.many-variables input { font-size: 12px; }
   .result-summary { align-items: flex-start; flex-direction: column; }

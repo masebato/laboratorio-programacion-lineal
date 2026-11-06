@@ -12,6 +12,7 @@
   let constraintCount = 1;
   let lastSolution = null;
   let graphView = 'primal';
+  let activeMathHelpButton = null;
 
   const guideModel = {
     objective: [50, 40, 60, 30, 70],
@@ -211,19 +212,33 @@
     return `<div class="table-scroll"><table class="tableau"><thead><tr><th>Base</th>${headings}<th scope="col">Sol.</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
-  function renderOperationEquation(expression, fallbackText) {
+  function renderInlineMath(expression, fallbackText) {
     if (window.katex?.renderToString) {
       try {
-        const rendered = window.katex.renderToString(expression, {
-          displayMode: true,
+        return window.katex.renderToString(expression, {
+          displayMode: false,
           throwOnError: false,
         });
-        return `<div class="operation-equation">${rendered}</div>`;
       } catch (error) {
-        // Keep the operation readable if the mathematical typesetting fails.
+        // Keep the calculation legible if typesetting fails.
       }
     }
-    return `<div class="operation-equation operation-equation-fallback">${fallbackText}</div>`;
+    return fallbackText;
+  }
+
+  function renderOperationBreakdown(heading, helpTopic, groups) {
+    const helpButton = `<button class="math-help" type="button" data-math-help="${helpTopic}" aria-haspopup="dialog" aria-expanded="false" aria-label="Abrir explicación: ${heading}">Ver explicación</button>`;
+    const groupTables = groups.map((group) => `
+      <section class="operation-row-group">
+        <h4>${group.heading}</h4>
+        <div class="table-scroll"><table class="operation-column-table">
+          <thead><tr><th>Columna</th><th>Cálculo individual</th></tr></thead>
+          <tbody>${group.calculations.map((calculation) => `
+            <tr><th scope="row">${calculation.column}</th><td>${renderInlineMath(calculation.expression, calculation.fallback)}</td></tr>`).join('')}
+          </tbody>
+        </table></div>
+      </section>`).join('');
+    return `<div class="operation-equation"><div class="operation-equation-heading"><span>${heading}</span>${helpButton}</div>${groupTables}</div>`;
   }
 
   function renderSimplexSteps(steps, variableNames, title, objectiveLabel) {
@@ -272,29 +287,37 @@
           const fraction = formatted.match(/^(-?\d+)\/(\d+)$/);
           return fraction ? `\\frac{${fraction[1]}}{${fraction[2]}}` : formatted;
         };
-        const formatRowValues = (values) => `\\left[${values.map((value) => formatMathNumber(value)).join(',\\;')}\\right]`;
-        const formatPlainRowValues = (values) => `[${values.map((value) => NumberFormat.formatNumber(value)).join(', ')}]`;
         const originalPivotRow = step.tableau[pivotRow];
         const normalizedPivotRow = originalPivotRow.map((value) => value / pivotValue);
-        const normalizePivotMath = `R_{${pivotRow + 1}}^{\\text{nueva}} = ${formatRowValues(originalPivotRow)} \\div ${formatMathNumber(pivotValue)} = ${formatRowValues(normalizedPivotRow)}`;
-        const normalizePivotFallback = `R${pivotRow + 1} nueva = ${formatPlainRowValues(originalPivotRow)} ÷ ${NumberFormat.formatNumber(pivotValue)} = ${formatPlainRowValues(normalizedPivotRow)}`;
-        const normalizePivotRow = renderOperationEquation(normalizePivotMath, normalizePivotFallback);
-        const rowOperations = step.tableau.map((row, rowIndex) => {
-          if (rowIndex === pivotRow) return '';
+        const columnLabel = (column) => column < variableNames.length ? variableNames[column] : 'b (límite)';
+        const normalizeCalculations = originalPivotRow.map((value, column) => ({
+          column: columnLabel(column),
+          expression: `${formatMathNumber(value)} \\div ${formatMathNumber(pivotValue)} = ${formatMathNumber(normalizedPivotRow[column])}`,
+          fallback: `${NumberFormat.formatNumber(value)} ÷ ${NumberFormat.formatNumber(pivotValue)} = ${NumberFormat.formatNumber(normalizedPivotRow[column])}`,
+        }));
+        const normalizePivotRow = renderOperationBreakdown('Dividir la fila pivote', 'normalize-pivot', [{
+          heading: `Fila pivote R${pivotRow + 1}`,
+          calculations: normalizeCalculations,
+        }]);
+        const rowOperationGroups = step.tableau.map((row, rowIndex) => {
+          if (rowIndex === pivotRow) return null;
           const isObjectiveRow = rowIndex === step.tableau.length - 1;
-          const rowName = isObjectiveRow
-            ? `\\mathrm{${objectiveLabel.replace('−', '-')}}`
-            : `R_{${rowIndex + 1}}`;
-          const plainRowName = isObjectiveRow ? objectiveLabel : `R${rowIndex + 1}`;
           const factor = row[enteringColumn];
-          const updatedRow = row.map((value, column) => value - factor * normalizedPivotRow[column]);
-          const math = `${rowName}^{\\text{nueva}} &= ${formatRowValues(row)} - (${formatMathNumber(factor)}) \\times ${formatRowValues(normalizedPivotRow)} = ${formatRowValues(updatedRow)}`;
-          const fallback = `${plainRowName} nueva = ${formatPlainRowValues(row)} − (${NumberFormat.formatNumber(factor)}) × ${formatPlainRowValues(normalizedPivotRow)} = ${formatPlainRowValues(updatedRow)}`;
-          return { math, fallback };
+          const calculations = row.map((value, column) => {
+            const product = factor * normalizedPivotRow[column];
+            const result = value - product;
+            return {
+              column: columnLabel(column),
+              expression: `${formatMathNumber(value)} - \\left(${formatMathNumber(factor)} \\times ${formatMathNumber(normalizedPivotRow[column])}\\right) = ${formatMathNumber(result)}`,
+              fallback: `${NumberFormat.formatNumber(value)} − (${NumberFormat.formatNumber(factor)} × ${NumberFormat.formatNumber(normalizedPivotRow[column])}) = ${NumberFormat.formatNumber(result)}`,
+            };
+          });
+          const rowHeading = isObjectiveRow
+            ? `Fila objetivo ${objectiveLabel}`
+            : `${rowIndex < pivotRow ? 'Fila superior' : 'Fila inferior'} R${rowIndex + 1}`;
+          return { heading: rowHeading, calculations };
         }).filter(Boolean);
-        const rowOperationsMath = `\\begin{aligned}${rowOperations.map((operation) => operation.math).join(' \\\\ ')}\\end{aligned}`;
-        const rowOperationsFallback = rowOperations.map((operation) => operation.fallback).join(' · ');
-        const rowOperationsMarkup = renderOperationEquation(rowOperationsMath, rowOperationsFallback);
+        const rowOperationsMarkup = renderOperationBreakdown('Operaciones por columna', 'eliminate-column', rowOperationGroups);
 
         pivotExplanation = `
           <div class="pivot-explanation">
@@ -584,6 +607,82 @@
     });
   }
 
+  function helpEquation(expression, fallback) {
+    if (window.katex?.renderToString) {
+      try {
+        return `<div class="help-equation">${window.katex.renderToString(expression, {
+          displayMode: true,
+          throwOnError: false,
+        })}</div>`;
+      } catch (error) {
+        // The written form remains available below if typesetting fails.
+      }
+    }
+    return `<div class="help-equation help-equation-fallback">${fallback}</div>`;
+  }
+
+  function showMathHelp(topic, trigger) {
+    const explanations = {
+      'normalize-pivot': {
+        title: 'Cómo convertir el pivote en 1',
+        content: `
+          <ol class="help-steps">
+            <li><b>Ubica el pivote.</b> Es el número donde se cruzan la columna entrante y la fila saliente.</li>
+            <li><b>Divide toda la fila.</b> Divide cada coeficiente y el valor del lado derecho entre el pivote.</li>
+            <li><b>Comprueba el pivote.</b> Al dividir el pivote entre sí mismo, esa posición queda en 1.</li>
+          </ol>
+          <section class="help-example">
+            <h3>Ejemplo con fracciones</h3>
+            <p>Para dividir por una fracción, multiplícala por su recíproco: se intercambian numerador y denominador.</p>
+            ${helpEquation(String.raw`R_p^{\text{nueva}} = \left[\frac{2}{5},\;\frac{3}{4},\;1\right] \div \frac{2}{5} = \left[1,\;\frac{15}{8},\;\frac{5}{2}\right]`, 'Rp nueva = [2/5, 3/4, 1] ÷ 2/5 = [1, 15/8, 5/2]')}
+            <div class="help-column-steps">
+              <div><b>Columna pivote x₁</b>${helpEquation(String.raw`\frac{2}{5} \div \frac{2}{5} = 1`, '2/5 ÷ 2/5 = 1')}</div>
+              <div><b>Columna x₂</b>${helpEquation(String.raw`\frac{3}{4} \div \frac{2}{5} = \frac{3}{4} \times \frac{5}{2} = \frac{15}{8}`, '3/4 ÷ 2/5 = 3/4 × 5/2 = 15/8')}</div>
+              <div><b>Lado derecho b</b>${helpEquation(`1 \\div \\frac{2}{5} = \\frac{5}{2}`, '1 ÷ 2/5 = 5/2')}</div>
+            </div>
+          </section>
+          <p class="help-takeaway">Después de este paso, la columna pivote tiene un 1 en la fila pivote. Ahora esa fila se usa para hacer ceros en las demás filas.</p>`,
+      },
+      'eliminate-column': {
+        title: 'Cómo hacer ceros en las demás filas',
+        content: `
+          <ol class="help-steps">
+            <li><b>Lee el factor.</b> Mira el coeficiente de la columna pivote en la fila que vas a corregir.</li>
+            <li><b>Multiplica la fila pivote.</b> Multiplica cada valor de la fila pivote ya normalizada por ese factor.</li>
+            <li><b>Resta las filas.</b> Resta el resultado de la fila original. El número de la columna pivote debe quedar en cero.</li>
+          </ol>
+          <section class="help-example">
+            <h3>Ejemplo con fracciones</h3>
+            <p>Tomemos una fila pivote ya normalizada y una fila que queremos corregir:</p>
+            ${helpEquation(String.raw`R_p^{\text{nueva}} = \left[1,\;\frac{4}{3}\right], \qquad R_i = \left[\frac{1}{2},\;\frac{2}{3}\right]`, 'Rp nueva = [1, 4/3], Ri = [1/2, 2/3]')}
+            <p>Multiplicamos la fila pivote por 1/2 y restamos el resultado de la fila original:</p>
+            ${helpEquation(String.raw`R_i^{\text{nueva}} = \left[\frac{1}{2},\;\frac{2}{3}\right] - \frac{1}{2}\left[1,\;\frac{4}{3}\right] = \left[0,\;0\right]`, 'Ri nueva = [1/2, 2/3] − 1/2[1, 4/3] = [0, 0]')}
+            <div class="help-column-steps">
+              <div><b>Columna x₁ (pivote)</b>${helpEquation(String.raw`\frac{1}{2} - \left(\frac{1}{2} \times 1\right) = 0`, '1/2 − (1/2 × 1) = 0')}</div>
+              <div><b>Columna x₂</b>${helpEquation(String.raw`\frac{2}{3} - \left(\frac{1}{2} \times \frac{4}{3}\right) = \frac{2}{3} - \frac{2}{3} = 0`, '2/3 − (1/2 × 4/3) = 2/3 − 2/3 = 0')}</div>
+            </div>
+            ${helpEquation(String.raw`\frac{1}{2} \times \frac{4}{3} = \frac{1\times4}{2\times3} = \frac{4}{6} = \frac{2}{3}`, '1/2 × 4/3 = (1×4)/(2×3) = 4/6 = 2/3')}
+          </section>
+          <p class="help-takeaway">Si el factor es negativo, restar ese valor equivale a sumar. Repite la operación en las filas de arriba, de abajo y en la fila objetivo.</p>`,
+      },
+    };
+
+    const explanation = explanations[topic];
+    if (!explanation) return;
+
+    byId('math-help-title').textContent = explanation.title;
+    byId('math-help-content').innerHTML = explanation.content;
+    activeMathHelpButton = trigger;
+    trigger.setAttribute('aria-expanded', 'true');
+    byId('math-help-dialog').showModal();
+    byId('close-math-help').focus();
+  }
+
+  function closeMathHelp() {
+    const dialog = byId('math-help-dialog');
+    if (dialog.open) dialog.close();
+  }
+
   function loadGuideModel() {
     byId('objective-direction').value = 'max';
     variableCount = guideModel.objective.length;
@@ -629,6 +728,20 @@
     byId('clear-model').addEventListener('click', clearModel);
     byId('number-format').addEventListener('change', () => {
       if (lastSolution) renderResult(lastSolution);
+    });
+
+    document.addEventListener('click', (event) => {
+      const helpButton = event.target.closest('[data-math-help]');
+      if (helpButton) showMathHelp(helpButton.dataset.mathHelp, helpButton);
+    });
+    byId('close-math-help').addEventListener('click', closeMathHelp);
+    byId('math-help-dialog').addEventListener('close', () => {
+      activeMathHelpButton?.setAttribute('aria-expanded', 'false');
+      activeMathHelpButton?.focus();
+      activeMathHelpButton = null;
+    });
+    byId('math-help-dialog').addEventListener('click', (event) => {
+      if (event.target === byId('math-help-dialog')) closeMathHelp();
     });
 
     document.querySelectorAll('.tab-button').forEach((button) => {
