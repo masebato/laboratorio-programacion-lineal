@@ -1,0 +1,21 @@
+# Local user data and attachments
+.codex-attachments/
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+credentials.json
+
+# Local tooling and operating-system files
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
