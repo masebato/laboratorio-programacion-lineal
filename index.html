@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Laboratorio interactivo para estudiar programación lineal, simplex, dualidad y sensibilidad.">
+  <title>Laboratorio de programación lineal</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="js/number-format.js" defer></script>
+  <script src="js/simplex.js" defer></script>
+  <script src="js/graph.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">◈ <strong>MODELO</strong> / laboratorio</div>
+    <div class="topic-label">PROGRAMACIÓN LINEAL · SIMPLEX · DUALIDAD</div>
+  </header>
+
+  <main class="page-content">
+    <p class="eyebrow">Del planteamiento a la interpretación</p>
+    <h1>Desarrolla y comprende tu modelo.</h1>
+    <p class="introduction">
+      Formula y resuelve el primal, construye el dual, aplica el método de dos fases e interpreta
+      precios sombra y holgura complementaria.
+    </p>
+
+    <div class="workspace">
+      <section class="card model-editor" aria-labelledby="model-title">
+        <h2 id="model-title">1. Modelo primal</h2>
+        <label class="field-label" for="objective-direction">Función objetivo</label>
+        <div class="objective-editor">
+          <select id="objective-direction" class="field" aria-label="Dirección del objetivo">
+            <option value="max">Maximizar Z</option>
+          </select>
+          <div id="objective-variables" class="objective-variable-list"></div>
+        </div>
+
+        <div class="constraint-heading">
+          <span class="field-label">Restricciones de recursos</span>
+          <button id="add-constraint" class="text-button" type="button">＋ Añadir fila</button>
+        </div>
+        <div id="constraint-rows" class="constraint-list"></div>
+        <button id="add-variable" class="text-button add-variable-button" type="button">＋ Añadir variable</button>
+
+        <p class="input-hint">
+          Modelo de maximización con restricciones ≤, disponibilidad no negativa y variables no negativas.
+          El gráfico aparece cuando el primal o el dual tiene dos variables.
+        </p>
+        <div id="model-error"></div>
+        <button id="solve-model" class="primary-button" type="button">Resolver primal y dual →</button>
+        <p class="guide-link">Usar un ejemplo: <button id="load-guide" type="button">Caso guía</button></p>
+      </section>
+
+      <section class="results-column" aria-label="Resultados y desarrollo">
+        <div class="card result-summary">
+          <div>
+            <span class="muted-label">Óptimo primal</span>
+            <strong id="objective-result" class="objective-result">Calculando…</strong>
+          </div>
+          <div id="variable-result" class="variable-result"></div>
+        </div>
+
+        <section class="card results-card">
+          <div class="format-control">
+            <label for="number-format">Mostrar cálculos como</label>
+            <select id="number-format" class="field">
+              <option value="fraction" selected>Fracciones</option>
+              <option value="decimal">Decimales</option>
+            </select>
+          </div>
+
+          <nav class="tab-list" role="tablist" aria-label="Desarrollo del modelo">
+            <button class="tab-button active" id="tab-primal" role="tab" aria-selected="true" aria-controls="primal-panel" data-panel="primal-panel" type="button">Primal · simplex</button>
+            <button class="tab-button" id="tab-dual" role="tab" aria-selected="false" aria-controls="dual-panel" data-panel="dual-panel" type="button">Dual · dos fases</button>
+            <button class="tab-button" id="tab-graph" role="tab" aria-selected="false" aria-controls="graph-panel" data-panel="graph-panel" type="button">Gráfico</button>
+            <button class="tab-button" id="tab-sensitivity" role="tab" aria-selected="false" aria-controls="sensitivity-panel" data-panel="sensitivity-panel" type="button">Sensibilidad</button>
+          </nav>
+
+          <div id="primal-panel" class="result-panel" role="tabpanel" aria-labelledby="tab-primal"></div>
+          <div id="dual-panel" class="result-panel" role="tabpanel" aria-labelledby="tab-dual" hidden></div>
+          <div id="graph-panel" class="result-panel" role="tabpanel" aria-labelledby="tab-graph" hidden></div>
+          <div id="sensitivity-panel" class="result-panel" role="tabpanel" aria-labelledby="tab-sensitivity" hidden></div>
+        </section>
+
+        <p class="footnote">
+          Herramienta educativa para programación lineal continua. Se permiten cantidades fraccionarias.
+        </p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
+
