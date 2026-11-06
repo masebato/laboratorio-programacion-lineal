@@ -13,6 +13,8 @@
   let lastSolution = null;
   let graphView = 'primal';
   let activeMathHelpButton = null;
+  let mathHelpEntries = new Map();
+  let mathHelpSequence = 0;
 
   const guideModel = {
     objective: [50, 40, 60, 30, 70],
@@ -227,18 +229,19 @@
   }
 
   function renderOperationBreakdown(heading, helpTopic, groups) {
-    const helpButton = `<button class="math-help" type="button" data-math-help="${helpTopic}" aria-haspopup="dialog" aria-expanded="false" aria-label="Abrir explicación: ${heading}">Ver explicación</button>`;
-    const groupTables = groups.map((group) => `
-      <section class="operation-row-group">
-        <h4>${group.heading}</h4>
-        <div class="table-scroll"><table class="operation-column-table">
-          <thead><tr><th>Columna</th><th>Cálculo individual</th></tr></thead>
-          <tbody>${group.calculations.map((calculation) => `
-            <tr><th scope="row">${calculation.column}</th><td>${renderInlineMath(calculation.expression, calculation.fallback)}</td></tr>`).join('')}
-          </tbody>
-        </table></div>
-      </section>`).join('');
-    return `<div class="operation-equation"><div class="operation-equation-heading"><span>${heading}</span>${helpButton}</div>${groupTables}</div>`;
+    const id = `math-help-${mathHelpSequence += 1}`;
+    mathHelpEntries.set(id, { topic: helpTopic, groups });
+    const helpButton = `<button class="math-help" type="button" data-math-help-id="${id}" aria-haspopup="dialog" aria-expanded="false" aria-label="Ver detalle: ${heading}">Ver explicación detallada</button>`;
+    const formula = helpTopic === 'normalize-pivot'
+      ? String.raw`R_p^{\text{nueva}} = \frac{R_p^{\text{anterior}}}{p}`
+      : String.raw`R_i^{\text{nueva}} = R_i^{\text{anterior}} - m_iR_p^{\text{nueva}}`;
+    const formulaFallback = helpTopic === 'normalize-pivot'
+      ? 'Rp nueva = Rp anterior ÷ p'
+      : 'Ri nueva = Ri anterior − mi × Rp nueva';
+    const summary = helpTopic === 'normalize-pivot'
+      ? 'Divide cada valor de la fila pivote, incluido el lado derecho, entre p (el valor del pivote) para que quede en 1.'
+      : 'Para cada fila i, mᵢ es su coeficiente actual en la columna pivote; úsalo para hacer cero esa columna.';
+    return `<div class="operation-equation operation-summary"><div class="operation-equation-heading"><span>${heading}</span>${helpButton}</div><div class="operation-general-formula">${renderInlineMath(formula, formulaFallback)}</div><p>${summary}</p></div>`;
   }
 
   function renderSimplexSteps(steps, variableNames, title, objectiveLabel) {
@@ -537,6 +540,8 @@
 
   function renderResult(model) {
     lastSolution = model;
+    mathHelpEntries = new Map();
+    mathHelpSequence = 0;
     const optimumLabel = model.direction === 'max' ? 'Máximo Z' : 'Mínimo Z';
     byId('objective-result').textContent = `${optimumLabel} = ${NumberFormat.formatNumber(model.primal.objectiveValue)}`;
     byId('variable-result').textContent = model.primal.variables
@@ -621,7 +626,21 @@
     return `<div class="help-equation help-equation-fallback">${fallback}</div>`;
   }
 
-  function showMathHelp(topic, trigger) {
+  function renderDetailedMathGroups(groups) {
+    const rowGroups = groups.map((group) => `
+      <section class="operation-row-group">
+        <h4>${group.heading}</h4>
+        <div class="table-scroll"><table class="operation-column-table">
+          <thead><tr><th>Columna</th><th>Cálculo individual</th></tr></thead>
+          <tbody>${group.calculations.map((calculation) => `
+            <tr><th scope="row">${calculation.column}</th><td>${renderInlineMath(calculation.expression, calculation.fallback)}</td></tr>`).join('')}
+          </tbody>
+        </table></div>
+      </section>`).join('');
+    return `<section class="help-current-calculation"><h3>Desarrollo de este pivote, columna por columna</h3>${rowGroups}</section>`;
+  }
+
+  function showMathHelp(entryId, trigger) {
     const explanations = {
       'normalize-pivot': {
         title: 'Cómo convertir el pivote en 1',
@@ -667,11 +686,16 @@
       },
     };
 
-    const explanation = explanations[topic];
+    const entry = mathHelpEntries.get(entryId);
+    const explanation = entry && explanations[entry.topic];
     if (!explanation) return;
 
     byId('math-help-title').textContent = explanation.title;
-    byId('math-help-content').innerHTML = explanation.content;
+    const detailedCalculations = renderDetailedMathGroups(entry.groups);
+    byId('math-help-content').innerHTML = explanation.content.replace(
+      '<section class="help-example">',
+      `${detailedCalculations}<section class="help-example">`,
+    );
     activeMathHelpButton = trigger;
     trigger.setAttribute('aria-expanded', 'true');
     byId('math-help-dialog').showModal();
@@ -731,8 +755,8 @@
     });
 
     document.addEventListener('click', (event) => {
-      const helpButton = event.target.closest('[data-math-help]');
-      if (helpButton) showMathHelp(helpButton.dataset.mathHelp, helpButton);
+      const helpButton = event.target.closest('[data-math-help-id]');
+      if (helpButton) showMathHelp(helpButton.dataset.mathHelpId, helpButton);
     });
     byId('close-math-help').addEventListener('click', closeMathHelp);
     byId('math-help-dialog').addEventListener('close', () => {
