@@ -252,12 +252,21 @@
               </tr>`).join('')}</tbody>
           </table></div>`;
 
+        const formatRowValues = (values) => `[${values.map(NumberFormat.formatNumber).join(', ')}]`;
+        const originalPivotRow = step.tableau[pivotRow];
+        const normalizedPivotRow = originalPivotRow.map((value) => value / pivotValue);
+        const normalizePivotRow = `
+          <div class="math-line">R${pivotRow + 1} nueva = ${formatRowValues(originalPivotRow)} ÷ ${NumberFormat.formatNumber(pivotValue)} = ${formatRowValues(normalizedPivotRow)}</div>`;
         const rowOperations = step.tableau.map((row, rowIndex) => {
-          const rowName = rowIndex === step.tableau.length - 1 ? objectiveLabel : `R${rowIndex + 1}`;
-          if (rowIndex === pivotRow) {
-            return `<div class="math-line">R${rowIndex + 1} nueva = R${rowIndex + 1} anterior ÷ ${NumberFormat.formatNumber(pivotValue)}</div>`;
-          }
-          return `<div class="math-line">${rowName} nueva = ${rowName} anterior − (${NumberFormat.formatNumber(row[enteringColumn])}) × R${pivotRow + 1} nueva</div>`;
+          if (rowIndex === pivotRow) return '';
+          const isObjectiveRow = rowIndex === step.tableau.length - 1;
+          const rowName = isObjectiveRow ? objectiveLabel : `R${rowIndex + 1}`;
+          const position = isObjectiveRow
+            ? 'fila objetivo'
+            : rowIndex < pivotRow ? 'fila de arriba' : 'fila de abajo';
+          const factor = row[enteringColumn];
+          const updatedRow = row.map((value, column) => value - factor * normalizedPivotRow[column]);
+          return `<div class="math-line"><b>${position}:</b> ${rowName} nueva = ${formatRowValues(row)} − (${NumberFormat.formatNumber(factor)}) × ${formatRowValues(normalizedPivotRow)} = ${formatRowValues(updatedRow)}</div>`;
         }).join('');
 
         pivotExplanation = `
@@ -269,9 +278,11 @@
             <br><b>2. Variable saliente.</b>
             Para conservar la factibilidad, se compara bᵢ/aᵢⱼ solo donde aᵢⱼ &gt; 0. La menor razón no negativa indica la fila que sale.
             ${ratioTable}
-            <b>3. Pivote y operaciones.</b>
+            <b>3. Pivote.</b>
             El pivote es ${NumberFormat.formatNumber(pivotValue)}, en la intersección de ${variableNames[enteringColumn]} y ${step.leavingVariable}.
-            Cada paso normaliza la fila pivote y elimina esa columna de las demás filas:
+            <br><b>4. Convertimos el pivote en 1.</b> Dividimos toda la fila pivote entre ${NumberFormat.formatNumber(pivotValue)}:
+            ${normalizePivotRow}
+            <b>5. Hacemos cero el resto de la columna.</b> Usamos la fila pivote ya normalizada, primero en las filas de arriba y abajo y también en la fila objetivo:
             ${rowOperations}
           </div>`;
       }
