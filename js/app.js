@@ -303,17 +303,16 @@
   }
 
   function renderReducedCostGuide(isMaximization) {
-    const transformedObjective = isMaximization
-      ? 'En la Fase II de este primal, Q = Z.'
-      : 'En la Fase II de este primal, Q = −Z, para convertir la minimización en una maximización.';
-
     return `
       <section class="study-card">
-        <h4>¿Por qué aparecen esos signos en la fila objetivo?</h4>
-        <p>El tableau expresa el objetivo que se está maximizando, Q = Σc′ⱼxⱼ, como una ecuación igualada a cero:</p>
-        <div class="math-line">Q − c′₁x₁ − c′₂x₂ − ⋯ − c′ₙxₙ = 0</div>
-        <p>Por ejemplo, si Z = 5x₁ + 3x₂, se escribe Z − 5x₁ − 3x₂ = 0. Al pasar cada término al lado izquierdo, la fila empieza con −c′ⱼ: un coeficiente objetivo positivo aparece negativo, y uno negativo aparece positivo. ${transformedObjective} En la Fase I, Q es el objetivo auxiliar V y se aplica la misma convención.</p>
-        <p>Después de ajustar la fila para que las variables básicas tengan coeficiente cero, sus entradas son costos reducidos (zⱼ − c′ⱼ), así que no necesariamente todas quedan negativas. Un costo reducido negativo indica que aumentar esa variable puede mejorar Q; cuando ya no quedan negativos, se alcanzó el óptimo.</p>
+        <h4>¿Por qué algunos coeficientes salen negativos?</h4>
+        <p>Ejemplo: si quieres maximizar Z = 5x₁ + 3x₂, el tableau pasa todo al lado izquierdo para dejar la ecuación igualada a cero:</p>
+        <div class="math-line">Z − 5x₁ − 3x₂ = 0</div>
+        <p>Por eso ves −5 y −3: son los coeficientes originales con el signo cambiado. En el simplex, un número negativo en esa fila indica que esa variable todavía puede ayudar a mejorar el objetivo; se elige el más negativo para entrar. Cuando ya no quedan negativos, se llega al óptimo.</p>
+        ${isMaximization
+          ? '<p>Si un coeficiente original ya era negativo, al cambiarle el signo aparecerá positivo en la fila.</p>'
+          : '<p>Como el modelo minimiza, primero se transforma en maximizar −Z. Por eso los signos de la fila se interpretan respecto a −Z.</p>'}
+        <p>La Fase I usa la misma idea con su objetivo auxiliar.</p>
       </section>`;
   }
 
@@ -413,7 +412,7 @@
         <p>${isMaximization
           ? 'El tableau maximiza −W, equivalente a minimizar W. Se detiene cuando no quedan costos reducidos negativos.'
           : 'El tableau maximiza W directamente. Se detiene cuando no quedan costos reducidos negativos.'}</p>
-        <p>La fila objetivo también se escribe como una ecuación igualada a cero. Por eso se usan los opuestos de los coeficientes del objetivo que el tableau está maximizando (${isMaximization ? '−W' : 'W'}). Tras ajustar las variables básicas, los valores son costos reducidos; un valor negativo indica una mejora posible en ese objetivo transformado.</p>
+        <p>En el dual se usa la misma regla: el tableau cambia los signos del objetivo que está maximizando (${isMaximization ? '−W' : 'W'}). Un valor negativo en su fila indica una mejora posible para ese objetivo.</p>
       </section>
       ${renderSimplexSteps(simplex.steps, variableNames, simplex.phaseOne ? 'Fase II del dual' : 'Simplex dual', objectiveLabel)}
       <div class="result-metrics">
